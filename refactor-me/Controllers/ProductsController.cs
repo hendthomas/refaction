@@ -1,115 +1,205 @@
-﻿using System;
-using System.Net;
-using System.Web.Http;
-using refactor_me.Models;
-
-namespace refactor_me.Controllers
+﻿namespace refactor_me.Controllers
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Net;
+    using System.Web.Http;
+    using refactor_me.Models;
+
     [RoutePrefix("products")]
     public class ProductsController : ApiController
     {
+        /**
+         * Returns all products
+         **/
         [Route]
         [HttpGet]
-        public Products GetAll()
+        public IEnumerable<Product> GetAll()
         {
-            return new Products();
+            using (ProductContext db = new ProductContext())
+            {
+                return db.Products.ToList();
+            }
         }
 
+        /**
+         * Returns all products with the given name
+         **/
         [Route]
         [HttpGet]
-        public Products SearchByName(string name)
+        public IEnumerable<Product> SearchByName(string name)
         {
-            return new Products(name);
+            using (ProductContext db = new ProductContext())
+            {
+                return db.Products.Where(p => p.Name.ToLower() == name.ToLower()).ToList();
+            }
         }
 
+        /**
+         * Returns a product with the given id
+         **/
         [Route("{id}")]
         [HttpGet]
         public Product GetProduct(Guid id)
         {
-            var product = new Product(id);
-            if (product.IsNew)
-                throw new HttpResponseException(HttpStatusCode.NotFound);
-
-            return product;
+            using (ProductContext db = new ProductContext())
+            {
+                List<Product> products = db.Products.Where(p => p.Id == id).ToList();
+                // Throw exception if no products with id found
+                if((products.Count) == 0)
+                {
+                    throw new HttpResponseException(HttpStatusCode.NotFound);
+                }
+                else
+                {
+                    return products.First();
+                }
+            }
         }
 
+        /**
+         * Creates the given product
+         **/
         [Route]
         [HttpPost]
         public void Create(Product product)
         {
-            product.Save();
+            using (ProductContext db = new ProductContext())
+            {
+                db.Products.Add(product);
+                db.SaveChanges();
+            }
         }
-
+        
+        /**
+         * Updates the product with the given id using the given product
+         **/
         [Route("{id}")]
         [HttpPut]
         public void Update(Guid id, Product product)
         {
-            var orig = new Product(id)
+            Product productToUpdate;
+            using (ProductContext db = new ProductContext())
             {
-                Name = product.Name,
-                Description = product.Description,
-                Price = product.Price,
-                DeliveryPrice = product.DeliveryPrice
-            };
-
-            if (!orig.IsNew)
-                orig.Save();
+                productToUpdate = db.Products.Where(p => p.Id == id).FirstOrDefault();                  
+            }
+            // Check the product to update exists
+            if (productToUpdate != null)
+            {
+                productToUpdate = product;
+            }
+            using (ProductContext db = new ProductContext())
+            {
+                db.Entry(productToUpdate).State = System.Data.Entity.EntityState.Modified;
+                db.SaveChanges();
+            }
         }
 
+        /**
+         * Deletes the product with the given id
+         **/
         [Route("{id}")]
         [HttpDelete]
         public void Delete(Guid id)
         {
-            var product = new Product(id);
-            product.Delete();
+            using (ProductContext db = new ProductContext())
+            {
+                Product productToRemove = db.Products.Where(p => p.Id == id).FirstOrDefault();
+                db.Products.Remove(productToRemove);
+                db.SaveChanges();
+            }
         }
 
+        /**
+         * Returns all product options for the given product id
+         **/
         [Route("{productId}/options")]
         [HttpGet]
-        public ProductOptions GetOptions(Guid productId)
+        public IEnumerable<ProductOption> GetOptions(Guid productId)
         {
-            return new ProductOptions(productId);
+            using (ProductContext db = new ProductContext())
+            {
+                return db.ProductOptions.Where(p => p.ProductId == productId).ToList();
+            }
         }
 
+        /**
+         * Returns the product option with the given id
+         **/
         [Route("{productId}/options/{id}")]
         [HttpGet]
         public ProductOption GetOption(Guid productId, Guid id)
         {
-            var option = new ProductOption(id);
-            if (option.IsNew)
-                throw new HttpResponseException(HttpStatusCode.NotFound);
-
-            return option;
+            using (ProductContext db = new ProductContext())
+            {
+                List<ProductOption> productOptions = db.ProductOptions.Where(p => p.Id == id).ToList();
+                // Throw exception if no product options with id found
+                if ((productOptions.Count) == 0)
+                {
+                    throw new HttpResponseException(HttpStatusCode.NotFound);
+                }
+                else
+                {
+                    return productOptions.First();
+                }
+            }
         }
 
+        /**
+         * Creates a new product option with the given product id using the given product option
+         **/
         [Route("{productId}/options")]
         [HttpPost]
         public void CreateOption(Guid productId, ProductOption option)
         {
             option.ProductId = productId;
-            option.Save();
+            using (ProductContext db = new ProductContext())
+            {
+                db.ProductOptions.Add(option);
+                db.SaveChanges();
+            }
         }
 
+        /**
+         * Updates a product option with the given id using the given product option
+         **/
         [Route("{productId}/options/{id}")]
         [HttpPut]
         public void UpdateOption(Guid id, ProductOption option)
         {
-            var orig = new ProductOption(id)
+            ProductOption productOptionToUpdate;
+            using (ProductContext db = new ProductContext())
             {
-                Name = option.Name,
-                Description = option.Description
-            };
-
-            if (!orig.IsNew)
-                orig.Save();
+                productOptionToUpdate = db.ProductOptions.Where(p => p.Id == id).FirstOrDefault();
+            }
+            // Check the product option to update exists
+            if (productOptionToUpdate != null)
+            {
+                Guid productId = productOptionToUpdate.ProductId;
+                productOptionToUpdate = option;
+                productOptionToUpdate.ProductId = productId;
+            }
+            using (ProductContext db = new ProductContext())
+            {
+                db.Entry(productOptionToUpdate).State = System.Data.Entity.EntityState.Modified;
+                db.SaveChanges();
+            }
         }
 
+        /**
+         * Deletes a product option with the given id
+         **/
         [Route("{productId}/options/{id}")]
         [HttpDelete]
         public void DeleteOption(Guid id)
         {
-            var opt = new ProductOption(id);
-            opt.Delete();
+            using (ProductContext db = new ProductContext())
+            {
+                ProductOption productOptionToRemove = db.ProductOptions.Where(p => p.Id == id).FirstOrDefault();
+                db.ProductOptions.Remove(productOptionToRemove);
+                db.SaveChanges();
+            }
         }
     }
 }
